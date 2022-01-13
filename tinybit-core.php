@@ -36,5 +36,5 @@ spl_autoload_register(
 );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	WP_CLI::add_command( 'tinybit-core', 'TBC\CLI' );
+	WP_CLI::add_command( 'tbc', 'TBC\CLI' );
 }
