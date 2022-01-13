@@ -61,7 +61,7 @@ class CLI {
 				$new_file
 			) . '-' . (int) $new_size['width'] . 'x' . (int) $new_size['height'];
 			$editor->save( trailingslashit( $dir ) . $new_file, mime_content_type( $file ) );
-			WP_CLI::log( sprintf( 'Generated %s', wp_basename( $new_file ) ) );
+			WP_CLI::log( sprintf( 'Generated %s', $new_file . '.' . $ext ) );
 		}
 
 		WP_CLI::success( 'Image widths created.' );
