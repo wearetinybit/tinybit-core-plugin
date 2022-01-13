@@ -8,6 +8,7 @@
 namespace TBC;
 
 use WP_CLI;
+use WP_Error;
 
 /**
  * TinyBit Core Utilities.
@@ -65,6 +66,88 @@ class CLI {
 		}
 
 		WP_CLI::success( 'Image widths created.' );
+	}
+
+	/**
+	 * Compresses images inline using TinyPNG.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <files>...
+	 * : Original image files.
+	 *
+	 * @subcommand compress-images
+	 */
+	public function compress_images( $args ) {
+		foreach ( $args as $file ) {
+			$orig_kb = round( ( filesize( $file ) / 1000 ), 2 );
+			$ret     = self::compress_image_inline_with_tinypng( $file );
+			if ( is_wp_error( $ret ) ) {
+				WP_CLI::error( $ret );
+			}
+			$new_kb = round( ( filesize( $file ) / 1000 ), 2 );
+			WP_CLI::log(
+				sprintf(
+					'Compressed %s from %dkb to %dkb',
+					wp_basename( $file ),
+					$orig_kb,
+					$new_kb
+				)
+			);
+		}
+		WP_CLI::success( 'Images compressed.' );
+	}
+
+	/**
+	 * Compresses an image in-place using TinyPNG.
+	 *
+	 * @param string $file Image file path.
+	 * @return true|WP_Error
+	 */
+	private static function compress_image_inline_with_tinypng( $file ) {
+
+		if ( ! defined( 'TBC_TINYPNG_API_KEY' ) ) {
+			return new WP_Error( 'missing-api-key', 'Constant TBC_TINYPNG_API_KEY is not defined.' );
+		}
+
+		$response = wp_remote_post(
+			'https://api.tinify.com/shrink',
+			[
+				'headers' => [
+					'Authorization' => 'Basic ' . base64_encode( 'api:' . TBC_TINYPNG_API_KEY ),
+					'Content-Type'  => 'multipart/form-data',
+				],
+				'body'    => file_get_contents( $file ),
+			]
+		);
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		$status = wp_remote_retrieve_response_code( $response );
+		$body   = wp_remote_retrieve_body( $response );
+		if ( 200 === $status || 201 === $status ) {
+			$body           = json_decode( $body, true );
+			$image_response = wp_remote_get( $body['output']['url'] );
+			if ( is_wp_error( $image_response ) ) {
+				return $image_response;
+			}
+			$image_status = wp_remote_retrieve_response_code( $response );
+			if ( 200 === $image_status || 201 === $image_status ) {
+				file_put_contents( $file, wp_remote_retrieve_body( $image_response ) );
+			} else {
+				return new WP_Error(
+					'download-http-error',
+					sprintf( 'Unexpected error downloading compressed image (HTTP %d)', $image_status )
+				);
+			}
+		} else {
+			return new WP_Error(
+				'compress-http-error',
+				sprintf( 'Unexpected error compressing image (HTTP %d)', $status )
+			);
+		}
+
+		return true;
 	}
 
 }
