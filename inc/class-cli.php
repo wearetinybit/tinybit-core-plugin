@@ -32,6 +32,9 @@ class CLI {
 	 * default: 70
 	 * ---
 	 *
+	 * [--compress]
+	 * : Run the image through additional compression.
+	 *
 	 * @subcommand generate-image-widths
 	 */
 	public function generate_image_widths( $args, $assoc_args ) {
@@ -75,8 +78,19 @@ class CLI {
 			);
 			$new_file .= '-' . (int) $new_size['width'] . 'x' . (int) $new_size['height'];
 			$editor->save( trailingslashit( $dir ) . $new_file, mime_content_type( $file ) );
-			$new_kb = round( ( filesize( trailingslashit( $dir ) . $new_file . '.' . $ext ) / 1000 ), 2 );
-			WP_CLI::log( sprintf( 'Generated %s (%dkb)', $new_file . '.' . $ext, $new_kb ) );
+			$full_file = trailingslashit( $dir ) . $new_file . '.' . $ext;
+			if ( ! empty( $assoc_args['compress'] ) ) {
+				$orig_kb = round( ( filesize( $full_file ) / 1000 ), 2 );
+				$ret     = self::compress_image_inline_with_tinypng( $full_file );
+				if ( is_wp_error( $ret ) ) {
+					WP_CLI::error( $ret );
+				}
+				$new_kb = round( ( filesize( $full_file ) / 1000 ), 2 );
+				WP_CLI::log( sprintf( 'Generated %s (%dkb->%dkb)', $new_file . '.' . $ext, $orig_kb, $new_kb ) );
+			} else {
+				$new_kb = round( ( filesize( $full_file ) / 1000 ), 2 );
+				WP_CLI::log( sprintf( 'Generated %s (%dkb)', $new_file . '.' . $ext, $new_kb ) );
+			}
 		}
 
 		WP_CLI::success( 'Image widths created.' );
