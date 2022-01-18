@@ -85,6 +85,7 @@ class CLI {
 				if ( is_wp_error( $ret ) ) {
 					WP_CLI::error( $ret );
 				}
+				clearstatcache( false, $full_file );
 				$new_kb = round( ( filesize( $full_file ) / 1000 ), 2 );
 				WP_CLI::log( sprintf( 'Generated %s (%dkb->%dkb)', $new_file . '.' . $ext, $orig_kb, $new_kb ) );
 			} else {
@@ -113,6 +114,7 @@ class CLI {
 			if ( is_wp_error( $ret ) ) {
 				WP_CLI::error( $ret );
 			}
+			clearstatcache( false, $file );
 			$new_kb = round( ( filesize( $file ) / 1000 ), 2 );
 			WP_CLI::log(
 				sprintf(
