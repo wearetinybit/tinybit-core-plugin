@@ -26,6 +26,12 @@ class CLI {
 	 * --widths=<widths>
 	 * : Comma-separated image widths to generate.
 	 *
+	 * [--quality=<quality>]
+	 * : Compression quality.
+	 * ---
+	 * default: 70
+	 * ---
+	 *
 	 * @subcommand generate-image-widths
 	 */
 	public function generate_image_widths( $args, $assoc_args ) {
@@ -52,17 +58,25 @@ class CLI {
 				WP_CLI::error( $editor );
 			}
 			$editor->resize( $width, null, false );
-			$dir      = dirname( $file );
-			$ext      = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
-			$new_file = wp_basename( $file, ".$ext" );
-			$new_size = $editor->get_size();
-			$new_file = preg_replace(
+			$editor->set_quality( $assoc_args['quality'] );
+			$dir       = dirname( $file );
+			$ext       = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+			$new_file  = wp_basename( $file, ".$ext" );
+			$new_size  = $editor->get_size();
+			$new_file  = preg_replace(
 				'#(-[\d]+x[\d]+)?$#',
 				'',
 				$new_file
-			) . '-' . (int) $new_size['width'] . 'x' . (int) $new_size['height'];
+			);
+			$new_file  = preg_replace(
+				'#(\@[\d]x?)?$#',
+				'',
+				$new_file
+			);
+			$new_file .= '-' . (int) $new_size['width'] . 'x' . (int) $new_size['height'];
 			$editor->save( trailingslashit( $dir ) . $new_file, mime_content_type( $file ) );
-			WP_CLI::log( sprintf( 'Generated %s', $new_file . '.' . $ext ) );
+			$new_kb = round( ( filesize( trailingslashit( $dir ) . $new_file . '.' . $ext ) / 1000 ), 2 );
+			WP_CLI::log( sprintf( 'Generated %s (%dkb)', $new_file . '.' . $ext, $new_kb ) );
 		}
 
 		WP_CLI::success( 'Image widths created.' );
