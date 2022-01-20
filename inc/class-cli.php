@@ -109,6 +109,10 @@ class CLI {
 	 */
 	public function compress_images( $args ) {
 		foreach ( $args as $file ) {
+			if ( ! file_exists( $file ) ) {
+				WP_CLI::warning( sprintf( 'Skipping missing file: %s', $file ) );
+				continue;
+			}
 			$orig_kb = round( ( filesize( $file ) / 1000 ), 2 );
 			$ret     = self::compress_image_inline_with_tinypng( $file );
 			if ( is_wp_error( $ret ) ) {
