@@ -116,7 +116,8 @@ class CLI {
 			$orig_kb = round( ( filesize( $file ) / 1000 ), 2 );
 			$ret     = self::compress_image_inline_with_tinypng( $file );
 			if ( is_wp_error( $ret ) ) {
-				WP_CLI::error( $ret );
+				WP_CLI::warning( $ret->get_error_message() );
+				continue;
 			}
 			clearstatcache( false, $file );
 			$new_kb = round( ( filesize( $file ) / 1000 ), 2 );
