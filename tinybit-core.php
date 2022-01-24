@@ -12,6 +12,19 @@
  * @package         TBC
  */
 
+require __DIR__ . '/functions.php';
+
+/*
+ * TBC\Integrations\Cloudflare
+ */
+tbc_register_class_hooks(
+	'TBC\Integrations\Cloudflare',
+	[
+		[ 'cloudflare_purge_by_url' ],
+	]
+);
+
+
 /**
  * Register the class autoloader
  */
