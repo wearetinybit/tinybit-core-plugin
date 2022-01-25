@@ -12,7 +12,7 @@
  * @package         TBC
  */
 
-require __DIR__ . '/functions.php';
+require __DIR__ . '/000-loader.php';
 
 /*
  * TBC\Integrations\Cloudflare
@@ -22,30 +22,6 @@ tbc_register_class_hooks(
 	[
 		[ 'cloudflare_purge_by_url' ],
 	]
-);
-
-
-/**
- * Register the class autoloader
- */
-spl_autoload_register(
-	function( $class ) {
-		$class = ltrim( $class, '\\' );
-		if ( 0 !== stripos( $class, 'TBC\\' ) ) {
-			return;
-		}
-
-		$parts = explode( '\\', $class );
-		array_shift( $parts ); // Don't need "TBC".
-		$last    = array_pop( $parts ); // File should be 'class-[...].php'.
-		$last    = 'class-' . $last . '.php';
-		$parts[] = $last;
-		$file    = dirname( __FILE__ ) . '/inc/' . str_replace( '_', '-', strtolower( implode( '/', $parts ) ) );
-		if ( file_exists( $file ) ) {
-			require $file;
-		}
-
-	}
 );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {

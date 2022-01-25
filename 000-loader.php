@@ -1,6 +1,6 @@
 <?php
 /**
- * Defines functions for us to use.
+ * Loads what we needs.
  *
  * @package TBC
  */
@@ -78,3 +78,26 @@ function tbc_parse_register_class_hooks( $class, $hooks ) {
 	}
 	return $parsed_hooks;
 }
+
+/**
+ * Register the class autoloader
+ */
+spl_autoload_register(
+	function( $class ) {
+		$class = ltrim( $class, '\\' );
+		if ( 0 !== stripos( $class, 'TBC\\' ) ) {
+			return;
+		}
+
+		$parts = explode( '\\', $class );
+		array_shift( $parts ); // Don't need "TBC".
+		$last    = array_pop( $parts ); // File should be 'class-[...].php'.
+		$last    = 'class-' . $last . '.php';
+		$parts[] = $last;
+		$file    = dirname( __FILE__ ) . '/inc/' . str_replace( '_', '-', strtolower( implode( '/', $parts ) ) );
+		if ( file_exists( $file ) ) {
+			require $file;
+		}
+
+	}
+);
