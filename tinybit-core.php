@@ -15,6 +15,16 @@
 require __DIR__ . '/000-loader.php';
 
 /*
+ * TBC\Media
+ */
+tbc_register_class_hooks(
+    'TBC\Media',
+    [
+        [ 'wp_generate_attachment_metadata', 10, 2 ],
+    ]
+);
+
+/*
  * TBC\Integrations\Cloudflare
  */
 tbc_register_class_hooks(
