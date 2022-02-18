@@ -26,7 +26,7 @@ class Frontend {
 				if ( $i > 4 ) {
 					break;
 				}
-				$bit = Utils::force_element_attribute( $content, 'img', 'loading', 'eager' );
+				$bit = Utils::force_element_attribute( $bit, 'img', 'loading', 'eager' );
 			}
 			$content = implode( PHP_EOL . PHP_EOL, $bits );
 		}
