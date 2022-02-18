@@ -7,7 +7,7 @@
  * Author URI:      YOUR SITE HERE
  * Text Domain:     tinybit-core
  * Domain Path:     /languages
- * Version:         0.2.0
+ * Version:         0.2.1
  *
  * @package         TBC
  */
@@ -15,13 +15,23 @@
 require __DIR__ . '/000-loader.php';
 
 /*
+ * TBC\Frontend
+ */
+tbc_register_class_hooks(
+	'TBC\Frontend',
+	[
+		[ 'the_content', 'filter_the_content_early', 1 ],
+	]
+);
+
+/*
  * TBC\Media
  */
 tbc_register_class_hooks(
-    'TBC\Media',
-    [
-        [ 'wp_generate_attachment_metadata', 10, 2 ],
-    ]
+	'TBC\Media',
+	[
+		[ 'wp_generate_attachment_metadata', 10, 2 ],
+	]
 );
 
 /*
