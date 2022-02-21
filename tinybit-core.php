@@ -7,7 +7,7 @@
  * Author URI:      YOUR SITE HERE
  * Text Domain:     tinybit-core
  * Domain Path:     /languages
- * Version:         0.2.2
+ * Version:         0.2.3
  *
  * @package         TBC
  */
@@ -33,6 +33,8 @@ tbc_register_class_hooks(
 		[ 'wp_generate_attachment_metadata', 10, 2 ],
 	]
 );
+
+add_filter( 'wp_omit_loading_attr_threshold', '__return_zero' );
 
 /*
  * TBC\Integrations\Cloudflare
