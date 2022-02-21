@@ -7,7 +7,7 @@
  * Author URI:      YOUR SITE HERE
  * Text Domain:     tinybit-core
  * Domain Path:     /languages
- * Version:         0.2.2
+ * Version:         0.2.3
  *
  * @package         TBC
  */
