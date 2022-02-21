@@ -34,6 +34,8 @@ tbc_register_class_hooks(
 	]
 );
 
+add_filter( 'wp_omit_loading_attr_threshold', '__return_zero' );
+
 /*
  * TBC\Integrations\Cloudflare
  */
