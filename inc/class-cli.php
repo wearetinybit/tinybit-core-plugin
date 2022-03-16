@@ -9,11 +9,26 @@ namespace TBC;
 
 use WP_CLI;
 use WP_Error;
+use WP_Query;
 
 /**
  * TinyBit Core Utilities.
  */
 class CLI {
+
+	/**
+	 * Whether or not the header has been rendered.
+	 *
+	 * @var boolean
+	 */
+	private static $rendered_header;
+
+	/**
+	 * Whether or not the footer has been rendered.
+	 *
+	 * @var boolean
+	 */
+	private static $rendered_footer;
 
 	/**
 	 * Generates width-constrained images at the same proportion as the original image.
@@ -134,6 +149,104 @@ class CLI {
 	}
 
 	/**
+	 * Audit posts for their og:image and schema primary image.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <sitemap>
+	 * : Sitemap to pull URLs from.
+	 *
+	 * [--format=<format>]
+	 * : Output format for the results.
+	 * ---
+	 * default: table
+	 * options:
+	 *   - table
+	 *   - csv
+	 *   - json
+	 *   - html
+	 * ---
+	 *
+	 * @subcommand audit-head-meta
+	 */
+	public function audit_head_meta( $args, $assoc_args ) {
+		$results = [];
+
+		list( $sitemap ) = $args;
+
+		$response = \WP_CLI\Utils\http_request( 'GET', $sitemap );
+		if ( 200 !== $response->status_code ) {
+			WP_CLI::error( 'Unable to fetch sitemap' );
+		}
+
+		preg_match_all( '#<loc>(.+)</loc>#Us', $response->body, $matches );
+		$urls = ! empty( $matches[1] ) ? $matches[1] : [];
+
+		foreach ( $urls as $url ) {
+			$response = \WP_CLI\Utils\http_request( 'GET', $url );
+			$output   = $response->body;
+
+			$og_image = '';
+			if ( preg_match( '#<meta property="og:image" content="([^"]+)"#', $output, $matches ) ) {
+				$og_image = $matches[1];
+			}
+			$schema_image = '';
+			if ( preg_match(
+				'#<script type="application/ld\+json" class="yoast-schema-graph">(.+)</script>#',
+				$output,
+				$matches
+			) ) {
+				$schema = json_decode( $matches[1], true );
+				if ( ! empty( $schema['@graph'] ) ) {
+					foreach ( $schema['@graph'] as $piece ) {
+						if ( 'ImageObject' === $piece['@type'] ) {
+							$schema_image = $piece['url'];
+							break;
+						}
+					}
+				}
+			}
+
+			$results[] = [
+				'url'          => $url,
+				'og_image'     => $og_image,
+				'schema_image' => $schema_image,
+			];
+		}
+
+		$headers = [];
+		if ( ! empty( $results ) ) {
+			$headers = array_keys( $results[0] );
+		}
+
+		if ( 'html' === $assoc_args['format'] ) {
+			$output = '<table><thead><tr>';
+			foreach ( $headers as $header ) {
+				$output .= '<th>' . $header . '</th>';
+			}
+			$output .= '</tr></thead>';
+			$output .= '<tbody>';
+			foreach ( $results as $result ) {
+				$output .= '<tr>';
+				foreach ( $result as $key => $value ) {
+					if ( false !== stripos( $key, '_image' ) && ! empty( $value ) ) {
+						$output .= '<td><img loading="lazy" width="300" src="' . $value . '"></td>';
+					} elseif ( false !== stripos( $key, 'url' ) && ! empty( $value ) ) {
+						$output .= '<td><a target="_blank" href="' . $value . '">' . $value . ' </a></td>';
+					} else {
+						$output .= '<td>' . $value . '</td>';
+					}
+				}
+				$output .= '</tr>';
+			}
+			$output .= '</tbody></table>';
+			echo $output;
+		} else {
+			WP_CLI\Utils\format_items( $assoc_args['format'], $results, $headers );
+		}
+	}
+
+	/**
 	 * Compresses an image in-place using TinyPNG.
 	 *
 	 * @param string $file Image file path.
@@ -184,5 +297,4 @@ class CLI {
 
 		return true;
 	}
-
 }
