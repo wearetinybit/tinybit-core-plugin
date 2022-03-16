@@ -178,7 +178,7 @@ class CLI {
 			'post_status'    => 'publish',
 			'no_found_rows'  => true,
 		];
-		foreach ( ( new WP_Query( $q ) )->posts as $post ) {
+		foreach ( ( new WP_Query( $q ) )->posts as $i => $post ) {
 
 			$url_parts = wp_parse_url( get_permalink( $post->ID ) );
 
@@ -232,6 +232,10 @@ class CLI {
 				'og_image'     => $og_image,
 				'schema_image' => $schema_image,
 			];
+
+			if ( $i && 0 === $i % 100 ) {
+				\WP_CLI\Utils\wp_clear_object_cache();
+			}
 		}
 
 		$headers = [];
