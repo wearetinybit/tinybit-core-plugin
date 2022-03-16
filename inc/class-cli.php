@@ -153,6 +153,9 @@ class CLI {
 	 *
 	 * ## OPTIONS
 	 *
+	 * <sitemap>
+	 * : Sitemap to pull URLs from.
+	 *
 	 * [--format=<format>]
 	 * : Output format for the results.
 	 * ---
@@ -166,44 +169,22 @@ class CLI {
 	 *
 	 * @subcommand audit-head-meta
 	 */
-	public function audit_head_meta( $_, $assoc_args ) {
+	public function audit_head_meta( $args, $assoc_args ) {
 		$results = [];
 
-		$get_flag_value = function( $assoc_args, $flag, $default = null ) {
-			return isset( $assoc_args[ $flag ] ) ? $assoc_args[ $flag ] : $default;
-		};
+		list( $sitemap ) = $args;
 
-		$q = [
-			'posts_per_page' => -1,
-			'post_status'    => 'publish',
-			'no_found_rows'  => true,
-		];
-		foreach ( ( new WP_Query( $q ) )->posts as $i => $post ) {
+		$response = \WP_CLI\Utils\http_request( 'GET', $sitemap );
+		if ( 200 !== $response->status_code ) {
+			WP_CLI::error( 'Unable to fetch sitemap' );
+		}
 
-			$url_parts = wp_parse_url( get_permalink( $post->ID ) );
+		preg_match_all( '#<loc>(.+)</loc>#Us', $response->body, $matches );
+		$urls = ! empty( $matches[1] ) ? $matches[1] : [];
 
-			if ( isset( $url_parts['host'] ) ) {
-				if ( isset( $url_parts['scheme'] ) && 'https' === strtolower( $url_parts['scheme'] ) ) {
-					$_SERVER['HTTPS'] = 'on';
-				}
-
-				$_SERVER['HTTP_HOST'] = $url_parts['host'];
-				if ( isset( $url_parts['port'] ) ) {
-					$_SERVER['HTTP_HOST'] .= ':' . $url_parts['port'];
-				}
-
-				$_SERVER['SERVER_NAME'] = $url_parts['host'];
-			}
-
-			$f = function( $key ) use ( $url_parts, $get_flag_value ) {
-				return $get_flag_value( $url_parts, $key, '' );
-			};
-
-			$_SERVER['REQUEST_URI']  = $f( 'path' ) . ( isset( $url_parts['query'] ) ? '?' . $url_parts['query'] : '' );
-			$_SERVER['SERVER_PORT']  = $get_flag_value( $url_parts, 'port', '80' );
-			$_SERVER['QUERY_STRING'] = $f( 'query' );
-
-			$output = self::load_wordpress_with_template();
+		foreach ( $urls as $url ) {
+			$response = \WP_CLI\Utils\http_request( 'GET', $url );
+			$output   = $response->body;
 
 			$og_image = '';
 			if ( preg_match( '#<meta property="og:image" content="([^"]+)"#', $output, $matches ) ) {
@@ -227,15 +208,11 @@ class CLI {
 			}
 
 			$results[] = [
-				'id'           => $post->ID,
+				'url'          => $url,
 				'title'        => $post->post_title,
 				'og_image'     => $og_image,
 				'schema_image' => $schema_image,
 			];
-
-			if ( $i && 0 === $i % 100 ) {
-				\WP_CLI\Utils\wp_clear_object_cache();
-			}
 		}
 
 		$headers = [];
@@ -319,117 +296,4 @@ class CLI {
 
 		return true;
 	}
-
-	/**
-	 * Runs through the entirety of the WP bootstrap process
-	 */
-	private static function load_wordpress_with_template() {
-
-		// Clear Yoast SEO meta.
-		if ( function_exists( 'YoastSEO' ) ) {
-			$memoizer = YoastSEO()->classes->get( \Yoast\WP\SEO\Memoizers\Meta_Tags_Context_Memoizer::class );
-			$memoizer->clear( 'current_page' );
-		}
-
-		// Set up main_query main WordPress query.
-		wp();
-
-		if ( ! defined( 'WP_USE_THEMES' ) ) {
-			define( 'WP_USE_THEMES', true );
-		}
-
-		return self::get_rendered_template();
-	}
-
-	/**
-	 * Returns the rendered template.
-	 *
-	 * @return string
-	 */
-	protected static function get_rendered_template() {
-		ob_start();
-		self::load_template();
-		return ob_get_clean();
-	}
-
-	/**
-	 * Copy-pasta of wp-includes/template-loader.php
-	 */
-	protected static function load_template() {
-		// Template is normally loaded in global scope, so we need to replicate.
-		foreach ( $GLOBALS as $key => $value ) {
-			global ${$key}; // phpcs:ignore
-			// PHPCompatibility.PHP.ForbiddenGlobalVariableVariable.NonBareVariableFound -- Syntax is updated to compatible with php 5 and 7.
-		}
-
-		do_action( 'template_redirect' );
-
-		$template = false;
-		// phpcs:disable Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
-		// phpcs:disable WordPress.CodeAnalysis.AssignmentInCondition.Found
-		if ( is_404() && $template = get_404_template() ) :
-		elseif ( is_search() && $template = get_search_template() ) :
-		elseif ( is_front_page() && $template = get_front_page_template() ) :
-		elseif ( is_home() && $template = get_home_template() ) :
-		elseif ( is_post_type_archive() && $template = get_post_type_archive_template() ) :
-		elseif ( is_tax() && $template = get_taxonomy_template() ) :
-		elseif ( is_attachment() && $template = get_attachment_template() ) :
-			remove_filter( 'the_content', 'prepend_attachment' );
-		elseif ( is_single() && $template = get_single_template() ) :
-		elseif ( is_page() && $template = get_page_template() ) :
-		elseif ( is_category() && $template = get_category_template() ) :
-		elseif ( is_tag() && $template = get_tag_template() ) :
-		elseif ( is_author() && $template = get_author_template() ) :
-		elseif ( is_date() && $template = get_date_template() ) :
-		elseif ( is_archive() && $template = get_archive_template() ) :
-		elseif ( is_comments_popup() && $template = get_comments_popup_template() ) :
-		elseif ( is_paged() && $template = get_paged_template() ) :
-		else :
-			$template = get_index_template();
-		endif;
-		/**
-		 * Filter the path of the current template before including it.
-		 *
-		 * @since 3.0.0
-		 *
-		 * @param string $template The path of the template to include.
-		 */
-
-		if ( $template = apply_filters( 'template_include', $template ) ) {
-			$template_contents = file_get_contents( $template );
-			$included_header   = false;
-			$included_footer   = false;
-			if ( false !== stripos( $template_contents, 'get_header();' ) ) {
-				if ( ! isset( self::$rendered_header ) ) {
-					// get_header() will render the first time but not subsequent.
-					self::$rendered_header = true;
-				} else {
-					do_action( 'get_header', null );
-					locate_template( 'header.php', true, false );
-				}
-				$included_header = true;
-			}
-			include( $template );
-			if ( false !== stripos( $template_contents, 'get_footer();' ) ) {
-				if ( ! isset( self::$rendered_footer ) ) {
-					// get_footer() will render the first time but not subsequent.
-					self::$rendered_footer = true;
-				} else {
-					do_action( 'get_footer', null );
-					locate_template( 'footer.php', true, false );
-				}
-				$included_footer = true;
-			}
-			if ( $included_header && $included_footer ) {
-				global $wp_scripts, $wp_styles;
-				$wp_scripts->done = [];
-				$wp_styles->done  = [];
-			}
-		}
-		// phpcs:enable Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
-		// phpcs:enable WordPress.CodeAnalysis.AssignmentInCondition.Found
-
-		return;
-	}
-
 }
