@@ -209,7 +209,6 @@ class CLI {
 
 			$results[] = [
 				'url'          => $url,
-				'title'        => $post->post_title,
 				'og_image'     => $og_image,
 				'schema_image' => $schema_image,
 			];
@@ -232,6 +231,8 @@ class CLI {
 				foreach ( $result as $key => $value ) {
 					if ( false !== stripos( $key, '_image' ) && ! empty( $value ) ) {
 						$output .= '<td><img loading="lazy" width="300" src="' . $value . '"></td>';
+					} elseif ( false !== stripos( $key, 'url' ) && ! empty( $value ) ) {
+						$output .= '<td><a target="_blank" href="' . $value . '">' . $value .' </a></td>';
 					} else {
 						$output .= '<td>' . $value . '</td>';
 					}
