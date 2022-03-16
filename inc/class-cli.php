@@ -9,11 +9,26 @@ namespace TBC;
 
 use WP_CLI;
 use WP_Error;
+use WP_Query;
 
 /**
  * TinyBit Core Utilities.
  */
 class CLI {
+
+	/**
+	 * Whether or not the header has been rendered.
+	 *
+	 * @var boolean
+	 */
+	private static $rendered_header;
+
+	/**
+	 * Whether or not the footer has been rendered.
+	 *
+	 * @var boolean
+	 */
+	private static $rendered_footer;
 
 	/**
 	 * Generates width-constrained images at the same proportion as the original image.
@@ -134,6 +149,122 @@ class CLI {
 	}
 
 	/**
+	 * Audit posts for their og:image and schema primary image.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--format=<format>]
+	 * : Output format for the results.
+	 * ---
+	 * default: table
+	 * options:
+	 *   - table
+	 *   - csv
+	 *   - json
+	 *   - html
+	 * ---
+	 *
+	 * @subcommand audit-head-meta
+	 */
+	public function audit_head_meta( $_, $assoc_args ) {
+		$results = [];
+
+		$get_flag_value = function( $assoc_args, $flag, $default = null ) {
+			return isset( $assoc_args[ $flag ] ) ? $assoc_args[ $flag ] : $default;
+		};
+
+		$q = [
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'no_found_rows'  => true,
+		];
+		foreach ( ( new WP_Query( $q ) )->posts as $post ) {
+
+			$url_parts = wp_parse_url( get_permalink( $post->ID ) );
+
+			if ( isset( $url_parts['host'] ) ) {
+				if ( isset( $url_parts['scheme'] ) && 'https' === strtolower( $url_parts['scheme'] ) ) {
+					$_SERVER['HTTPS'] = 'on';
+				}
+
+				$_SERVER['HTTP_HOST'] = $url_parts['host'];
+				if ( isset( $url_parts['port'] ) ) {
+					$_SERVER['HTTP_HOST'] .= ':' . $url_parts['port'];
+				}
+
+				$_SERVER['SERVER_NAME'] = $url_parts['host'];
+			}
+
+			$f = function( $key ) use ( $url_parts, $get_flag_value ) {
+				return $get_flag_value( $url_parts, $key, '' );
+			};
+
+			$_SERVER['REQUEST_URI']  = $f( 'path' ) . ( isset( $url_parts['query'] ) ? '?' . $url_parts['query'] : '' );
+			$_SERVER['SERVER_PORT']  = $get_flag_value( $url_parts, 'port', '80' );
+			$_SERVER['QUERY_STRING'] = $f( 'query' );
+
+			$output = self::load_wordpress_with_template();
+
+			$og_image = '';
+			if ( preg_match( '#<meta property="og:image" content="([^"]+)"#', $output, $matches ) ) {
+				$og_image = $matches[1];
+			}
+			$schema_image = '';
+			if ( preg_match(
+				'#<script type="application/ld\+json" class="yoast-schema-graph">(.+)</script>#',
+				$output,
+				$matches
+			) ) {
+				$schema = json_decode( $matches[1], true );
+				if ( ! empty( $schema['@graph'] ) ) {
+					foreach ( $schema['@graph'] as $piece ) {
+						if ( 'ImageObject' === $piece['@type'] ) {
+							$schema_image = $piece['url'];
+							break;
+						}
+					}
+				}
+			}
+
+			$results[] = [
+				'id'           => $post->ID,
+				'title'        => $post->post_title,
+				'og_image'     => $og_image,
+				'schema_image' => $schema_image,
+			];
+		}
+
+		$headers = [];
+		if ( ! empty( $results ) ) {
+			$headers = array_keys( $results[0] );
+		}
+
+		if ( 'html' === $assoc_args['format'] ) {
+			$output = '<table><thead><tr>';
+			foreach ( $headers as $header ) {
+				$output .= '<th>' . $header . '</th>';
+			}
+			$output .= '</tr></thead>';
+			$output .= '<tbody>';
+			foreach ( $results as $result ) {
+				$output .= '<tr>';
+				foreach ( $result as $key => $value ) {
+					if ( false !== stripos( $key, '_image' ) && ! empty( $value ) ) {
+						$output .= '<td><img loading="lazy" width="300" src="' . $value . '"></td>';
+					} else {
+						$output .= '<td>' . $value . '</td>';
+					}
+				}
+				$output .= '</tr>';
+			}
+			$output .= '</tbody></table>';
+			echo $output;
+		} else {
+			WP_CLI\Utils\format_items( $assoc_args['format'], $results, $headers );
+		}
+	}
+
+	/**
 	 * Compresses an image in-place using TinyPNG.
 	 *
 	 * @param string $file Image file path.
@@ -183,6 +314,118 @@ class CLI {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Runs through the entirety of the WP bootstrap process
+	 */
+	private static function load_wordpress_with_template() {
+
+		// Clear Yoast SEO meta.
+		if ( function_exists( 'YoastSEO' ) ) {
+			$memoizer = YoastSEO()->classes->get( \Yoast\WP\SEO\Memoizers\Meta_Tags_Context_Memoizer::class );
+			$memoizer->clear( 'current_page' );
+		}
+
+		// Set up main_query main WordPress query.
+		wp();
+
+		if ( ! defined( 'WP_USE_THEMES' ) ) {
+			define( 'WP_USE_THEMES', true );
+		}
+
+		return self::get_rendered_template();
+	}
+
+	/**
+	 * Returns the rendered template.
+	 *
+	 * @return string
+	 */
+	protected static function get_rendered_template() {
+		ob_start();
+		self::load_template();
+		return ob_get_clean();
+	}
+
+	/**
+	 * Copy-pasta of wp-includes/template-loader.php
+	 */
+	protected static function load_template() {
+		// Template is normally loaded in global scope, so we need to replicate.
+		foreach ( $GLOBALS as $key => $value ) {
+			global ${$key}; // phpcs:ignore
+			// PHPCompatibility.PHP.ForbiddenGlobalVariableVariable.NonBareVariableFound -- Syntax is updated to compatible with php 5 and 7.
+		}
+
+		do_action( 'template_redirect' );
+
+		$template = false;
+		// phpcs:disable Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
+		// phpcs:disable WordPress.CodeAnalysis.AssignmentInCondition.Found
+		if ( is_404() && $template = get_404_template() ) :
+		elseif ( is_search() && $template = get_search_template() ) :
+		elseif ( is_front_page() && $template = get_front_page_template() ) :
+		elseif ( is_home() && $template = get_home_template() ) :
+		elseif ( is_post_type_archive() && $template = get_post_type_archive_template() ) :
+		elseif ( is_tax() && $template = get_taxonomy_template() ) :
+		elseif ( is_attachment() && $template = get_attachment_template() ) :
+			remove_filter( 'the_content', 'prepend_attachment' );
+		elseif ( is_single() && $template = get_single_template() ) :
+		elseif ( is_page() && $template = get_page_template() ) :
+		elseif ( is_category() && $template = get_category_template() ) :
+		elseif ( is_tag() && $template = get_tag_template() ) :
+		elseif ( is_author() && $template = get_author_template() ) :
+		elseif ( is_date() && $template = get_date_template() ) :
+		elseif ( is_archive() && $template = get_archive_template() ) :
+		elseif ( is_comments_popup() && $template = get_comments_popup_template() ) :
+		elseif ( is_paged() && $template = get_paged_template() ) :
+		else :
+			$template = get_index_template();
+		endif;
+		/**
+		 * Filter the path of the current template before including it.
+		 *
+		 * @since 3.0.0
+		 *
+		 * @param string $template The path of the template to include.
+		 */
+
+		if ( $template = apply_filters( 'template_include', $template ) ) {
+			$template_contents = file_get_contents( $template );
+			$included_header   = false;
+			$included_footer   = false;
+			if ( false !== stripos( $template_contents, 'get_header();' ) ) {
+				if ( ! isset( self::$rendered_header ) ) {
+					// get_header() will render the first time but not subsequent.
+					self::$rendered_header = true;
+				} else {
+					do_action( 'get_header', null );
+					locate_template( 'header.php', true, false );
+				}
+				$included_header = true;
+			}
+			include( $template );
+			if ( false !== stripos( $template_contents, 'get_footer();' ) ) {
+				if ( ! isset( self::$rendered_footer ) ) {
+					// get_footer() will render the first time but not subsequent.
+					self::$rendered_footer = true;
+				} else {
+					do_action( 'get_footer', null );
+					locate_template( 'footer.php', true, false );
+				}
+				$included_footer = true;
+			}
+			if ( $included_header && $included_footer ) {
+				global $wp_scripts, $wp_styles;
+				$wp_scripts->done = [];
+				$wp_styles->done  = [];
+			}
+		}
+		// phpcs:enable Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
+		// phpcs:enable WordPress.CodeAnalysis.AssignmentInCondition.Found
+
+		return;
 	}
 
 }
