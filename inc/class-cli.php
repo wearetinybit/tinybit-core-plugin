@@ -232,7 +232,7 @@ class CLI {
 					if ( false !== stripos( $key, '_image' ) && ! empty( $value ) ) {
 						$output .= '<td><img loading="lazy" width="300" src="' . $value . '"></td>';
 					} elseif ( false !== stripos( $key, 'url' ) && ! empty( $value ) ) {
-						$output .= '<td><a target="_blank" href="' . $value . '">' . $value .' </a></td>';
+						$output .= '<td><a target="_blank" href="' . $value . '">' . $value . ' </a></td>';
 					} else {
 						$output .= '<td>' . $value . '</td>';
 					}
