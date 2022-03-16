@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.0] - 2022-03-16
+
+### Added
+* Adds a WP-CLI command for auditing `<head>` meta values [[#6](https://github.com/wearetinybit/tinybit-core-plugin/pull/6)].
+
 ## [0.2.3] - 2022-02-21
 
 ### Added
