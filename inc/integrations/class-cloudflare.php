@@ -21,5 +21,4 @@ class Cloudflare {
 	public static function filter_cloudflare_purge_by_url( $urls ) {
 		return $urls;
 	}
-
 }

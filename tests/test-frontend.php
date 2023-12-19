@@ -27,7 +27,7 @@ Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. I
 EOT;
 		$expected = <<<EOT
 <p>Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Etiam porta sem malesuada magna mollis euismod.</p>
-<p><img decoding="async" loading="eager" src="https://example.com" height="240" width="300"></p>
+<p><img fetchpriority="high" decoding="async" loading="eager" src="https://example.com" height="240" width="300"></p>
 <p>Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Etiam porta sem malesuada magna mollis euismod.</p>
 <p>Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Etiam porta sem malesuada magna mollis euismod.</p>
 EOT;
@@ -42,5 +42,4 @@ EOT;
 			trim( apply_filters( 'the_content', $original ) )
 		);
 	}
-
 }

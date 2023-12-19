@@ -38,7 +38,7 @@ class Media {
 			return;
 		}
 
-		$gd_filter = function() {
+		$gd_filter = function () {
 			return array( 'WP_Image_Editor_GD' );
 		};
 
@@ -60,5 +60,4 @@ class Media {
 			$gd_filter
 		);
 	}
-
 }

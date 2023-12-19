@@ -24,8 +24,8 @@ class Utils {
 	public static function force_element_attribute( $content, $element, $attribute, $value ) {
 		$content = preg_replace_callback(
 			'#<' . $element . '([^>]*)>#',
-			function( $match ) use ( $element, $attribute, $value ) {
-				$full = $match[0];
+			function ( $matched ) use ( $element, $attribute, $value ) {
+				$full = $matched[0];
 				$full = preg_replace(
 					'#(<' . $element . '[^>]+' . $attribute . '=["\'])([^"\']+)#',
 					'$1' . $value,
