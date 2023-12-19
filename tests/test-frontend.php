@@ -42,5 +42,4 @@ EOT;
 			trim( apply_filters( 'the_content', $original ) )
 		);
 	}
-
 }

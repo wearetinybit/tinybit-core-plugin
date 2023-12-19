@@ -83,7 +83,7 @@ function tbc_parse_register_class_hooks( $class, $hooks ) {
  * Register the class autoloader
  */
 spl_autoload_register(
-	function( $class ) {
+	function ( $class ) {
 		$class = ltrim( $class, '\\' );
 		if ( 0 !== stripos( $class, 'TBC\\' ) ) {
 			return;
@@ -94,10 +94,9 @@ spl_autoload_register(
 		$last    = array_pop( $parts ); // File should be 'class-[...].php'.
 		$last    = 'class-' . $last . '.php';
 		$parts[] = $last;
-		$file    = dirname( __FILE__ ) . '/inc/' . str_replace( '_', '-', strtolower( implode( '/', $parts ) ) );
+		$file    = __DIR__ . '/inc/' . str_replace( '_', '-', strtolower( implode( '/', $parts ) ) );
 		if ( file_exists( $file ) ) {
 			require $file;
 		}
-
 	}
 );

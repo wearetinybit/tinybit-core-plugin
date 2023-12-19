@@ -23,7 +23,7 @@
 	<rule ref="PHPCompatibilityWP"/>
 
 	<rule ref="WordPress-Core">
-		<exclude name="Generic.Arrays.DisallowShortArraySyntax.Found" />
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax.Found" />
 	</rule>
 
 	<!-- WP-CLI commands are excluded from this rule -->
